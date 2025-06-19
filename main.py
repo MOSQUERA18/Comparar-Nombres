@@ -8,6 +8,10 @@ from openpyxl.styles import PatternFill
 import unicodedata
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from pathlib import Path
+
+CARPETA_DESCARGAS = str(Path.home() / "Downloads")
+
 
 CARPETA_PDFS = ""
 EXCEL_VALIDACION = ""
@@ -80,17 +84,20 @@ def comparar_nombres(nombres_pdf, nombres_excel):
 
 def exportar_con_colores(resultados):
     df_resultados = pd.DataFrame(resultados, columns=["Nombre PDF", "Nombre Excel", "Similitud", "Estado"])
-    df_resultados.to_excel(SALIDA_EXCEL, index=False)
+    salida = os.path.join(CARPETA_DESCARGAS, SALIDA_EXCEL)
+    df_resultados.to_excel(salida, index=False)
+    wb = load_workbook(salida)
 
-    wb = load_workbook(SALIDA_EXCEL)
     ws = wb.active
     for row in range(2, ws.max_row + 1):
         estado = ws[f"D{row}"].value
         fill = VERDE if estado == "✔" else ROJO
         for col in ["A", "B", "C", "D"]:
             ws[f"{col}{row}"].fill = fill
-    wb.save(SALIDA_EXCEL)
-    messagebox.showinfo("Listo", f"Comparación exportada en: {SALIDA_EXCEL}")
+        
+    wb.save(salida)
+    messagebox.showinfo("Listo", f"Comparación exportada en:\n{salida}")
+
 
 def extraer_nombres():
     carpeta = filedialog.askdirectory(title="Seleccionar carpeta de PDFs")
@@ -108,8 +115,10 @@ def extraer_nombres():
             else:
                 no_leidos.append(archivo)
 
-    df = pd.DataFrame(nombres, columns=["Nombres Extraídos"])
-    salida = "nombres_extraidos.xlsx"
+    nombres_ordenados = sorted(nombres, key=lambda n: normalizar(n))
+    df = pd.DataFrame(nombres_ordenados, columns=["Nombres Extraídos"])
+
+    salida = os.path.join(CARPETA_DESCARGAS, "nombres_extraidos.xlsx")
     df.to_excel(salida, index=False)
 
     msg = f"Nombres extraídos en: {salida}"
@@ -173,8 +182,8 @@ def lanzar_gui():
     ventana.title("Validación de Nombres desde PDFs")
     ventana.geometry("400x200")
 
-    # boton_extraer = tk.Button(ventana, text="Extraer nombres de PDFs", command=extraer_nombres, height=2, width=30)
-    # boton_extraer.pack(pady=20)
+    boton_extraer = tk.Button(ventana, text="Extraer nombres de PDFs", command=extraer_nombres, height=2, width=30)
+    boton_extraer.pack(pady=20)
 
     boton_comparar = tk.Button(ventana, text="Comparar con Excel", command=comparar, height=2, width=30)
     boton_comparar.pack(pady=10)

@@ -389,19 +389,25 @@ def procesar_comparar_documentos(carpeta: Path, excel_path: str):
     exportar_resultados_documentos(resultados)
     return len(resultados)
 
+
 def procesar_validacion_completa(carpeta: Path, excel_path: str):
     nombres_excel = leer_columna_excel(excel_path, index_col=1)
     documentos_excel_raw = leer_columna_excel(excel_path, index_col=0)
     documentos_excel = [normalizar_documento(d) for d in documentos_excel_raw]
 
     resultados = []
+    
+    # ----------------------------------------------------------------
+    # 🔎 PRIMERA FASE: recorrer PDFs y comparar con Excel
+    # ----------------------------------------------------------------
     for item in Path(carpeta).iterdir():
         if not (item.is_file() and item.suffix.lower() == ".pdf"):
             continue
         texto = leer_pdf_completo(item)
         nombre_extraido = extraer_nombre_desde_texto(texto) or MSG_NO_EXTRAIDO
         num_extraido, tipo_doc = extraer_documento_desde_texto(texto)
-        # Nombre: busco match exacto primero
+        
+        # Comparar nombre
         mejor_nombre = ""
         sim_nombre = 0
         if nombre_extraido != MSG_NO_EXTRAIDO:
@@ -419,7 +425,7 @@ def procesar_validacion_completa(carpeta: Path, excel_path: str):
                         mejor_nombre = nombres_excel[i]
         estado_nombre, _ = evaluar_similitud(sim_nombre)
 
-        # Documento
+        # Comparar documento
         mejor_doc = ""
         sim_doc = 0
         if num_extraido:
@@ -432,7 +438,20 @@ def procesar_validacion_completa(carpeta: Path, excel_path: str):
                     if s > sim_doc:
                         sim_doc = s
                         mejor_doc = de
-        estado_doc, _ = evaluar_similitud(sim_doc)
+            # 🛑 VALIDACIÓN ESPECIAL PARA NOMBRES
+            if sim_nombre < 50:
+                estado_nombre = "❌ NO EXISTE EN EL REPORTE DE INSCRIPCIÓN"
+                mejor_nombre = ""  # No sugerir falso match
+            else:
+                estado_nombre, _ = evaluar_similitud(sim_nombre)
+
+            # 🛑 VALIDACIÓN ESPECIAL PARA DOCUMENTOS
+            if sim_doc < 50:
+                estado_doc = "❌ NO EXISTE EN EL REPORTE DE INSCRIPCIÓN"
+                mejor_doc = ""     # No sugerir falso match
+            else:
+                estado_doc, _ = evaluar_similitud(sim_doc)
+
 
         resultados.append([
             item.name,
@@ -447,8 +466,39 @@ def procesar_validacion_completa(carpeta: Path, excel_path: str):
             estado_doc
         ])
 
+    # ----------------------------------------------------------------
+    # 🟦 SEGUNDA FASE: revisar Excel persona por persona (FUERA DEL FOR)
+    # ----------------------------------------------------------------
+    pdf_nombres_norm = [normalizar_texto(r[1]) for r in resultados]
+    pdf_docs = [r[5] for r in resultados]
+
+    for idx, nombre in enumerate(nombres_excel):
+        nombre_norm = normalizar_texto(nombre)
+        documento_excel = documentos_excel[idx] if idx < len(documentos_excel) else ""
+
+        falta_nombre = nombre_norm not in pdf_nombres_norm
+        falta_doc = documento_excel not in pdf_docs if documento_excel else True
+
+        if falta_nombre or falta_doc:
+            resultados.append([
+                "— SIN PDF —",
+                MSG_NO_EXTRAIDO,
+                nombre,
+                0,
+                "❌ NO TIENE CERTIFICADO",
+                documento_excel if documento_excel else MSG_NO_EXTRAÍDO,
+                "NO IDENTIFICADO",
+                documento_excel if documento_excel else "",
+                0,
+                "❌ NO TIENE CERTIFICADO"
+            ])
+
+    # ----------------------------------------------------------------
+    # 📤 Exportar Excel final
+    # ----------------------------------------------------------------
     exportar_resultados_completos(resultados)
     return len(resultados)
+
 
 # ------------------------------
 # GUI (limpia pero funcional)

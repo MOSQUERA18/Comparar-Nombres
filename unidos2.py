@@ -407,7 +407,7 @@ def procesar_validacion_completa(carpeta: Path, excel_path: str):
         nombre_extraido = extraer_nombre_desde_texto(texto) or MSG_NO_EXTRAIDO
         num_extraido, tipo_doc = extraer_documento_desde_texto(texto)
         
-        # Comparar nombre
+                # Comparar nombre
         mejor_nombre = ""
         sim_nombre = 0
         if nombre_extraido != MSG_NO_EXTRAIDO:
@@ -423,9 +423,8 @@ def procesar_validacion_completa(carpeta: Path, excel_path: str):
                     if s > sim_nombre:
                         sim_nombre = s
                         mejor_nombre = nombres_excel[i]
-        estado_nombre, _ = evaluar_similitud(sim_nombre)
 
-        # Comparar documento
+        # Documentos
         mejor_doc = ""
         sim_doc = 0
         if num_extraido:
@@ -438,19 +437,25 @@ def procesar_validacion_completa(carpeta: Path, excel_path: str):
                     if s > sim_doc:
                         sim_doc = s
                         mejor_doc = de
-            # 🛑 VALIDACIÓN ESPECIAL PARA NOMBRES
-            if sim_nombre < 50:
-                estado_nombre = "❌ NO EXISTE EN EL REPORTE DE INSCRIPCIÓN"
-                mejor_nombre = ""  # No sugerir falso match
-            else:
-                estado_nombre, _ = evaluar_similitud(sim_nombre)
 
-            # 🛑 VALIDACIÓN ESPECIAL PARA DOCUMENTOS
-            if sim_doc < 50:
-                estado_doc = "❌ NO EXISTE EN EL REPORTE DE INSCRIPCIÓN"
-                mejor_doc = ""     # No sugerir falso match
-            else:
-                estado_doc, _ = evaluar_similitud(sim_doc)
+        # -------------------------
+        # 📌 REGLAS ESPECIALES
+        # -------------------------
+
+        # NOMBRE
+        if sim_nombre < 50:
+            estado_nombre = "❌ NO EXISTE EN EL REPORTE DE INSCRIPCIÓN"
+            mejor_nombre = ""
+        else:
+            estado_nombre, _ = evaluar_similitud(sim_nombre)
+
+        # DOCUMENTO
+        if sim_doc < 50:
+            estado_doc = "❌ NO EXISTE EN EL REPORTE DE INSCRIPCIÓN"
+            mejor_doc = ""
+        else:
+            estado_doc, _ = evaluar_similitud(sim_doc)
+
 
 
         resultados.append([
